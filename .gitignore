@@ -1,1 +1,11 @@
 .DS_Store
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.env
+
+outputs/embeddings/*.npy
+outputs/embeddings/*.json
