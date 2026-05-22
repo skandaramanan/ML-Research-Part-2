@@ -183,6 +183,78 @@ def load_images(meta_df: pd.DataFrame, root: Path | str) -> Iterator:
             yield im.convert("RGB").copy()
 
 
+EMBEDDINGS_DIR = REPO_ROOT / "outputs" / "embeddings"
+VALID_BACKBONES = frozenset({"resnet18", "effnetb0"})
+VALID_EMBED_SPLITS = frozenset({"train", "test"})
+
+
+def embedding_cache_paths(
+    task: int,
+    split: str,
+    backbone: str,
+    embeddings_dir: Path | str | None = None,
+) -> tuple[Path, Path]:
+    """Return ``(npy_path, image_ids_json)`` for a cached embedding file."""
+    if task not in TASK_DIRS:
+        raise ValueError(f"task must be 1 or 2, got {task}")
+    if split not in VALID_EMBED_SPLITS:
+        raise ValueError(f"split must be 'train' or 'test', got {split!r}")
+    if backbone not in VALID_BACKBONES:
+        raise ValueError(f"backbone must be one of {sorted(VALID_BACKBONES)}, got {backbone!r}")
+    root = Path(embeddings_dir) if embeddings_dir is not None else EMBEDDINGS_DIR
+    stem = f"task{task}_{split}_{backbone}"
+    return root / f"{stem}.npy", root / f"{stem}_ids.json"
+
+
+def save_embedding_cache(
+    embeddings: np.ndarray,
+    image_ids: Iterable,
+    task: int,
+    split: str,
+    backbone: str,
+    embeddings_dir: Path | str | None = None,
+) -> tuple[Path, Path]:
+    """Save float32 embedding matrix and matching ``image_id`` order JSON."""
+    import json
+
+    image_ids = list(image_ids)
+    emb = np.asarray(embeddings, dtype=np.float32)
+    if emb.ndim != 2:
+        raise ValueError(f"embeddings must be 2-D, got shape {emb.shape}")
+    if len(image_ids) != emb.shape[0]:
+        raise ValueError(
+            f"image_ids ({len(image_ids)}) and embeddings rows ({emb.shape[0]}) mismatch"
+        )
+
+    npy_path, json_path = embedding_cache_paths(task, split, backbone, embeddings_dir)
+    npy_path.parent.mkdir(parents=True, exist_ok=True)
+    np.save(npy_path, emb)
+    with open(json_path, "w") as f:
+        json.dump({"image_ids": image_ids, "shape": list(emb.shape)}, f, indent=2)
+    return npy_path, json_path
+
+
+def load_embedding_cache(
+    task: int,
+    split: str,
+    backbone: str,
+    embeddings_dir: Path | str | None = None,
+) -> tuple[np.ndarray, list[str]]:
+    """Load cached embeddings and their ``image_id`` order."""
+    import json
+
+    npy_path, json_path = embedding_cache_paths(task, split, backbone, embeddings_dir)
+    if not npy_path.exists() or not json_path.exists():
+        raise FileNotFoundError(
+            f"Missing cache for task={task} split={split} backbone={backbone}: "
+            f"expected {npy_path} and {json_path}"
+        )
+    emb = np.load(npy_path)
+    with open(json_path) as f:
+        meta = json.load(f)
+    return emb, meta["image_ids"]
+
+
 # ---------------------------------------------------------------------------
 # Splitting
 # ---------------------------------------------------------------------------

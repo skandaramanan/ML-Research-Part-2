@@ -5,10 +5,13 @@ Two-task image classification (Task 1: 5-class coarse; Task 2: 10-class fine-gra
 ## Setup
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python -m ipykernel install --user --name mlassignment2 --display-name "Python (MLAssignment2 .venv)"
 ```
+
+In Cursor/VS Code or Jupyter, pick the kernel **Python (MLAssignment2 .venv)** for all notebooks (system Python does not include `torch`).
 
 ## Run order
 
